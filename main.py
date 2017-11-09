@@ -16,7 +16,7 @@ class MultilayerPerceptron:
         self.h = 3
         self.a = 0.4
         self.b = 0.5
-        self.max_cup = 0.1
+        self.max_cup = 0.05
         self.gs = gridspec.GridSpec(4, 5)
 
         self.x = np.zeros(self.side ** 2)
@@ -145,12 +145,16 @@ class MultilayerPerceptron:
         self.x = np.array(image.ravel())
         self.calc_neurons()
         print(name)
-        print(list(map((lambda x: x * 100), self.y)))
+        values = list(map((lambda x: float("%.2f" % (x * 100))), self.y))
+        print(values)
+        return np.argmax(values)
 
     def recognize(self):
         for _, _, files in os.walk(self.rec_dir):
             i = 1
             j = 0
+            lst = []
+            cnt = 0
             for _file in files:
                 f = mpimg.imread(self.rec_dir + _file)
 
@@ -160,13 +164,17 @@ class MultilayerPerceptron:
                 plt.title(title)
                 f = f[:, :, 0]
 
-                if j < 4:
-                    j += 1
-                else:
-                    j = 0
-                    i += 1
+                if self.play(_file, f) == j:
+                    cnt += 1
 
-                self.play(_file, f)
+                if i < 3:
+                    i += 1
+                else:
+                    lst.append(cnt / 3)
+                    cnt = 0
+                    i = 1
+                    j += 1
+            print(lst)
 
     def run(self):
         self.load_test_images()
