@@ -4,7 +4,8 @@ import numpy as np
 import os
 import matplotlib.image as mpimg
 import random
-import scipy.spatial.distance as dist
+import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 
 
 class MultilayerPerceptron:
@@ -15,7 +16,8 @@ class MultilayerPerceptron:
         self.h = 3
         self.a = 0.4
         self.b = 0.5
-        self.max_cup = 0.8
+        self.max_cup = 0.1
+        self.gs = gridspec.GridSpec(4, 5)
 
         self.x = np.zeros(self.side ** 2)
         self.g = np.zeros(self.h)
@@ -28,6 +30,8 @@ class MultilayerPerceptron:
         self.q = np.zeros(self.h)
         self.t = np.zeros(self.m)
 
+        self.dklist = np.zeros(self.m)
+
         self.test_images = np.zeros((self.p, self.side, self.side))
         self.test_dir = "original/"
         self.rec_dir = "noized/"
@@ -37,7 +41,14 @@ class MultilayerPerceptron:
         for _, _, files in os.walk(self.test_dir):
             i = 0
             for _file in files:
-                f = mpimg.imread(self.test_dir + _file)[:, :, 0]
+                f = mpimg.imread(self.test_dir + _file)
+
+                plt.subplot(self.gs[0, i])
+                plt.imshow(f)
+                title = "Image " + str(i)
+                plt.title(title)
+                f = f[:, :, 0]
+
                 self.test_images[i] = f
                 self.ref_out[i, i] = 1.0
                 i += 1
@@ -72,31 +83,6 @@ class MultilayerPerceptron:
         for i in range(0, len(self.t)):
             self.t[i] = random.uniform(-1, 1)
 
-    def find_winner(self):
-        minimum = 0
-        min_pos = 0
-        for j in range(0, len(self.y)):
-            value = self.victories[j] * dist.euclidean(self.x, self.w[:, j])
-            if j == 0:
-                minimum = value
-            if value <= minimum:
-                minimum = value
-                min_pos = j
-        self.victories[min_pos] += 1
-        return min_pos
-
-    def find_cluster(self):
-        minimum = 0
-        min_pos = 0
-        for j in range(0, len(self.y)):
-            value = dist.euclidean(self.x, self.w[:, j])
-            if j == 0:
-                minimum = value
-            if value <= minimum:
-                minimum = value
-                min_pos = j
-        return min_pos
-
     def calc_neurons(self):
         for j in range(0, len(self.g)):
             self.g[j] = self.out_g(j)
@@ -113,16 +99,19 @@ class MultilayerPerceptron:
     def e(self, j, yr):
         s = 0
         for k in range(0, self.m):
-            s += self.d(k, yr) * self.f(k) * self.w[j, k]
+            s += self.dklist[k] * self.f(k) * self.w[j, k]
         return s
 
     def make_corrections(self, yr):
+        for k in range(len(self.y)):
+            self.dklist[k] = self.d(k, yr)
+
         for j in range(len(self.w)):
             for k in range(len(self.w[0])):
-                self.w[j, k] = self.w[j, k] + self.a * self.y[k] * (1 - self.y[k]) * self.d(k, yr) * self.g[j]
+                self.w[j, k] = self.w[j, k] + self.a * self.y[k] * (1 - self.y[k]) * self.dklist[k] * self.g[j]
 
         for k in range(len(self.t)):
-            self.t[k] = self.t[k] + self.a * self.y[k] * (1 - self.y[k]) * self.d(k, yr)
+            self.t[k] = self.t[k] + self.a * self.y[k] * (1 - self.y[k]) * self.dklist[k]
 
         for i in range(len(self.v)):
             for j in range(len(self.v[0])):
@@ -130,49 +119,60 @@ class MultilayerPerceptron:
 
         for j in range(len(self.q)):
             self.q[j] = self.q[j] + self.b * self.g[j] * (1 - self.g[j]) * self.e(j, yr)
-        pass
 
     def train(self):
         self.init_net()
 
-        maximum = 0
         while True:
+            maximum = 0
             for image_num in range(0, self.p):
-                errors = []
+                self.dklist = np.zeros(self.m)
                 self.x = self.test_images[image_num].ravel()
 
                 self.calc_neurons()
                 self.make_corrections(self.ref_out[image_num])
 
-                for k in range(0, self.m):
-                    errors.append(np.abs(self.d(k, self.ref_out[image_num])))
-                if np.argmax(errors) >= maximum:
-                    maximum = np.argmax(errors)
+                max_val = max(list(map((lambda x: abs(x)), self.dklist)))
+                if max_val >= maximum:
+                    maximum = max_val
 
-            print(maximum)
             if maximum < self.max_cup:
                 break
+            else:
+                maximum = 0
 
-    def play(self, image):
-        self.x = np.array(image)
+    def play(self, name, image):
+        self.x = np.array(image.ravel())
         self.calc_neurons()
-        return self.find_cluster()
+        print(name)
+        print(list(map((lambda x: x * 100), self.y)))
 
     def recognize(self):
         for _, _, files in os.walk(self.rec_dir):
+            i = 1
+            j = 0
             for _file in files:
-                f = mpimg.imread(self.rec_dir + _file)[:, :, 0]
-                cluster = self.play(f.ravel())
-                res = np.zeros((f.shape[0], f.shape[1], 3))
-                res[:, :, 0] = f
-                res[:, :, 1] = f
-                res[:, :, 2] = f
-                mpimg.imsave(self.out_dir + str(cluster) + "/" + _file, res)
+                f = mpimg.imread(self.rec_dir + _file)
+
+                plt.subplot(self.gs[i, j])
+                plt.imshow(f)
+                title = _file
+                plt.title(title)
+                f = f[:, :, 0]
+
+                if j < 4:
+                    j += 1
+                else:
+                    j = 0
+                    i += 1
+
+                self.play(_file, f)
 
     def run(self):
         self.load_test_images()
         self.train()
-        #  self.recognize()
+        self.recognize()
+        plt.show()
 
 
 if __name__ == "__main__":
