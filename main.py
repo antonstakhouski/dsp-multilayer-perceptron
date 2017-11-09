@@ -15,8 +15,8 @@ class MultilayerPerceptron:
         self.m = 5
         self.h = 3
         self.a = 0.4
-        self.b = 0.5
-        self.max_cup = 0.05
+        self.b = 0.7
+        self.max_cup = 0.08
         self.gs = gridspec.GridSpec(4, 5)
 
         self.x = np.zeros(self.side ** 2)
@@ -170,7 +170,7 @@ class MultilayerPerceptron:
                 if i < 3:
                     i += 1
                 else:
-                    lst.append(cnt / 3)
+                    lst.append(cnt / 3 * 100)
                     cnt = 0
                     i = 1
                     j += 1
